@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YellowKode Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Unbounded:wght@400;600;700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #0c0c0e;
+  --surface:   #141418;
+  --surface2:  #1c1c23;
+  --surface3:  #242430;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --accent:    #f5c518;
+  --accent2:   #f5a623;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --blue:      #6366f1;
+  --text:      #e8e8f0;
+  --muted:     #52526e;
+  --muted2:    #3a3a52;
+  --mono:      'DM Mono', monospace;
+  --ui:        'DM Sans', sans-serif;
+  --brand:     'Unbounded', sans-serif;
+  --r:         12px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);display:flex;height:100dvh}
+
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
+
+/* ── SIDEBAR ── */
+.sidebar{width:280px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;z-index:2;overflow:hidden}
+.sidebar-header{padding:20px 16px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.brand-icon{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.brand-text{font-family:var(--brand);font-size:0.72rem;font-weight:700;line-height:1.3;letter-spacing:0.02em}
+.brand-text span{display:block;color:var(--accent);font-size:0.6rem;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;margin-top:1px}
+.new-session-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:var(--r);padding:10px;font-family:var(--brand);font-size:0.72rem;font-weight:700;letter-spacing:0.04em;cursor:pointer;transition:opacity 0.2s,transform 0.1s;display:flex;align-items:center;justify-content:center;gap:6px}
+.new-session-btn:hover{opacity:0.9}
+.new-session-btn:active{transform:scale(0.98)}
+.sidebar-section-title{padding:12px 16px 6px;font-size:0.67rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+.sessions-list{flex:1;overflow-y:auto;padding:0 8px 8px}
+.sessions-list::-webkit-scrollbar{width:3px}
+.sessions-list::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px}
+.session-item{padding:10px;border-radius:var(--r);cursor:pointer;transition:background 0.15s;margin-bottom:2px;border:1px solid transparent}
+.session-item:hover{background:var(--surface2)}
+.session-item.active{background:var(--surface2);border-color:rgba(245,197,24,0.2)}
+.session-title{font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.session-meta{display:flex;align-items:center;gap:6px;font-size:0.7rem;color:var(--muted);font-family:var(--mono)}
+.session-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.session-status-dot.active{background:var(--green)}
+.session-status-dot.completed{background:var(--blue)}
+.session-status-dot.error{background:var(--red)}
+.sidebar-footer{padding:12px;border-top:1px solid var(--border);flex-shrink:0}
+.status-row{display:flex;align-items:center;gap:8px;font-size:0.72rem;font-family:var(--mono);color:var(--muted)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.dot.off{background:var(--muted2);box-shadow:none;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.session-del{opacity:0;cursor:pointer;color:var(--muted);font-size:15px;padding:1px 5px;border-radius:4px;transition:all 0.15s;flex-shrink:0;line-height:1}
+.session-item:hover .session-del{opacity:1}
+.session-del:hover{color:var(--red);background:rgba(239,68,68,0.12)}
+.session-title-row{display:flex;align-items:center;gap:4px;min-width:0}
+.session-title{flex:1;min-width:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1}
+.main-header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(12,12,14,0.7);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);flex-shrink:0}
+#model-banner{display:none;background:rgba(245,197,24,0.06);border-bottom:1px solid rgba(245,197,24,0.2);padding:9px 22px;font-size:0.77rem;color:var(--accent);gap:8px;align-items:center;flex-shrink:0}
+#model-banner.show{display:flex}
+.banner-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.5s ease-in-out infinite}
+.session-info{display:flex;flex-direction:column;gap:2px}
+.session-name{font-family:var(--brand);font-size:0.82rem;font-weight:600;letter-spacing:0.02em}
+.session-id{font-family:var(--mono);font-size:0.65rem;color:var(--muted)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.model-badge{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:0.68rem;color:var(--accent);display:flex;align-items:center;gap:6px}
+.hdr-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent)}
+.hdr-btn.rag-on{border-color:var(--blue);color:var(--blue);background:rgba(99,102,241,0.12)}
+
+/* ── TABS ── */
+.view-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+.tab{padding:10px 20px;font-size:0.78rem;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.2s;letter-spacing:0.02em}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── VIEW PANELS ── */
+.view-panel{display:none;flex:1;overflow:hidden;flex-direction:column}
+.view-panel.active{display:flex}
+
+/* ── CHAT ── */
+#messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px}
+#messages::-webkit-scrollbar{width:3px}
+#messages::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px}
+.msg{display:flex;gap:12px;animation:fadeUp 0.25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{align-self:flex-end;flex-direction:row-reverse;max-width:75%}
+.msg.assistant{align-self:flex-start;max-width:85%}
+.avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px}
+.avatar.user{background:linear-gradient(135deg,#4f46e5,#7c3aed)}
+.avatar.ai{background:var(--accent);color:#000;font-weight:700;font-size:11px;font-family:var(--brand)}
+.msg-body{display:flex;flex-direction:column;min-width:0;flex:1}
+.bubble{padding:12px 16px;border-radius:var(--r);line-height:1.7;font-size:0.88rem}
+.msg.user .bubble{background:var(--surface2);border:1px solid rgba(99,102,241,0.2);border-bottom-right-radius:3px}
+.msg.assistant .bubble{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:3px}
+.bubble img{max-width:100%;max-height:400px;border-radius:8px;margin-top:8px;display:block;border:1px solid var(--border2);cursor:pointer;object-fit:contain;transition:opacity 0.2s}
+.bubble img:hover{opacity:0.85}
+.bubble pre{background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:8px 0;overflow-x:auto;font-family:var(--mono);font-size:0.76rem}
+.bubble code{font-family:var(--mono);font-size:0.84em;background:rgba(245,197,24,0.1);padding:1px 5px;border-radius:4px}
+.bubble strong{font-weight:600}
+.bubble em{font-style:italic;color:var(--accent)}
+.bubble ul,.bubble ol{padding-left:18px;margin:6px 0}
+.bubble li{margin:3px 0}
+.bubble h1,.bubble h2,.bubble h3{font-family:var(--brand);font-weight:700;margin:10px 0 4px}
+.bubble blockquote{border-left:3px solid var(--accent);padding-left:10px;color:var(--muted);margin:8px 0;font-style:italic}
+.copy-btn{font-size:0.64rem;color:var(--muted);cursor:pointer;padding:2px 7px;border-radius:4px;transition:all 0.15s;font-family:var(--mono);border:1px solid transparent;margin-top:3px;display:inline-flex;align-items:center;gap:3px;align-self:flex-end}
+.copy-btn:hover{color:var(--accent);border-color:var(--border2)}
+.rag-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:5px;padding:2px 8px;font-size:0.63rem;font-family:var(--mono);color:var(--blue);margin-bottom:6px}
+.thinking{display:flex;gap:4px;padding:4px}
+.thinking span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:0.2s}
+.thinking span:nth-child(3){animation-delay:0.4s}
+@keyframes blink{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+.stream-cursor{display:inline-block;color:var(--accent);animation:cur 0.7s step-end infinite}
+@keyframes cur{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── EMPTY STATE ── */
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:40px;color:var(--muted)}
+.empty-logo{font-family:var(--brand);font-size:2rem;font-weight:900;color:var(--accent);letter-spacing:-0.04em;line-height:1;margin-bottom:4px}
+.empty-state h2{font-size:1.1rem;font-weight:600;color:var(--text)}
+.empty-state p{font-size:0.82rem;max-width:360px;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:4px}
+.chip{background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:7px 14px;font-size:0.75rem;cursor:pointer;transition:all 0.2s;font-family:var(--mono)}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:rgba(245,197,24,0.06)}
+
+/* ── INPUT AREA ── */
+.input-area{padding:14px 20px 18px;background:rgba(12,12,14,0.8);backdrop-filter:blur(20px);border-top:1px solid var(--border);flex-shrink:0}
+.input-area.drag-over{border-top:2px solid var(--accent);background:rgba(245,197,24,0.03)}
+#preview-bar{display:none;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.preview-item{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;font-size:0.7rem;font-family:var(--mono)}
+.preview-item img{width:36px;height:36px;border-radius:5px;object-fit:cover}
+.rm{cursor:pointer;color:var(--muted);font-size:15px;transition:color 0.15s}
+.rm:hover{color:var(--red)}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.input-actions{display:flex;gap:5px;flex-shrink:0}
+.icon-btn{width:40px;height:40px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all 0.2s;flex-shrink:0}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(245,197,24,0.06)}
+.icon-btn.rec{border-color:var(--red);color:var(--red);background:rgba(239,68,68,0.08);animation:pulsered 1s infinite}
+@keyframes pulsered{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+textarea{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-family:var(--ui);font-size:0.88rem;resize:none;outline:none;line-height:1.5;min-height:44px;max-height:180px;transition:border-color 0.2s}
+textarea:focus{border-color:rgba(245,197,24,0.4)}
+textarea::placeholder{color:var(--muted)}
+.send-btn{width:44px;height:44px;border-radius:10px;border:none;background:var(--accent);color:#000;cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity 0.2s,transform 0.1s;box-shadow:0 4px 16px rgba(245,197,24,0.25)}
+.send-btn:hover{opacity:0.9;transform:scale(1.05)}
+.send-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none}
+.input-hint{margin-top:7px;font-size:0.67rem;color:var(--muted);font-family:var(--mono);text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+#rag-hint{display:none;align-items:center;gap:3px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.22);border-radius:4px;padding:1px 6px;color:var(--blue);font-size:0.6rem;cursor:pointer}
+#rag-hint.on{display:inline-flex}
+#rag-hint:hover{background:rgba(99,102,241,0.18)}
+
+/* ── SESSIONS HISTORY ── */
+#view-sessions{padding:24px;overflow-y:auto;gap:16px}
+.sessions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.session-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:all 0.2s}
+.session-card:hover{border-color:rgba(245,197,24,0.3);background:var(--surface2)}
+.sc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.sc-title{font-weight:600;font-size:0.9rem;margin-bottom:3px}
+.sc-agent{font-size:0.68rem;font-family:var(--mono);color:var(--accent);background:rgba(245,197,24,0.08);border:1px solid rgba(245,197,24,0.2);border-radius:5px;padding:2px 6px}
+.sc-status{font-size:0.68rem;font-family:var(--mono);padding:2px 7px;border-radius:5px}
+.sc-status.active{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)}
+.sc-status.completed{background:rgba(99,102,241,0.1);color:var(--blue);border:1px solid rgba(99,102,241,0.2)}
+.sc-status.error{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.sc-summary{font-size:0.78rem;color:var(--muted);line-height:1.5;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sc-footer{display:flex;align-items:center;justify-content:space-between;font-size:0.68rem;font-family:var(--mono);color:var(--muted)}
+.sc-screenshots{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
+.sc-screenshots img{width:50px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--border2)}
+.sc-stats{display:flex;gap:10px}
+.sc-stat{display:flex;align-items:center;gap:4px}
+
+/* ── TASKS ── */
+#view-tasks{padding:24px;overflow-y:auto;gap:16px;flex-direction:column}
+.tasks-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.tasks-header h2{font-family:var(--brand);font-size:0.9rem;font-weight:700}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:var(--brand);font-size:0.7rem;font-weight:700;cursor:pointer;transition:opacity 0.2s}
+.btn-primary:hover{opacity:0.9}
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px;transition:all 0.2s;cursor:pointer}
+.task-card:hover{border-color:rgba(245,197,24,0.25);background:var(--surface2)}
+.task-icon{width:36px;height:36px;border-radius:9px;background:rgba(245,197,24,0.1);border:1px solid rgba(245,197,24,0.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.task-info{flex:1}
+.task-name{font-weight:600;font-size:0.88rem;margin-bottom:3px}
+.task-prompt{font-size:0.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px}
+.task-run-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;font-size:0.72rem;font-family:var(--mono);color:var(--text);cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.task-run-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── MODAL ── */
+.img-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:1000;align-items:center;justify-content:center;cursor:zoom-out}
+.img-modal.open{display:flex}
+.img-modal img{max-width:90vw;max-height:90vh;border-radius:8px}
+
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 18px;border-radius:9px;font-size:0.78rem;font-family:var(--mono);opacity:0;pointer-events:none;transition:all 0.25s;z-index:600}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#file-input{display:none}
+#pdf-file-input{display:none}
+
+/* ── KNOWLEDGE BASE PANEL ── */
+.kb-panel{position:fixed;top:0;right:-440px;width:420px;height:100%;background:var(--surface);border-left:1px solid var(--border);z-index:500;display:flex;flex-direction:column;transition:right 0.3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+.kb-panel.open{right:0}
+.kb-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.kb-title{font-family:var(--brand);font-size:0.8rem;font-weight:700}
+.kb-close{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.2s;line-height:1}
+.kb-close:hover{color:var(--red);border-color:var(--red)}
+.kb-body{flex:1;overflow-y:auto;padding:18px 20px}
+.kb-body::-webkit-scrollbar{width:3px}
+.kb-body::-webkit-scrollbar-thumb{background:var(--surface3)}
+.kb-section{margin-bottom:24px}
+.kb-section-label{font-size:0.65rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+/* Toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:10px}
+.toggle-info{display:flex;flex-direction:column;gap:3px}
+.toggle-label{font-size:0.85rem;font-weight:500}
+.toggle-desc{font-size:0.7rem;color:var(--muted);font-family:var(--mono)}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--surface3);border-radius:12px;cursor:pointer;transition:background 0.2s;border:1px solid var(--border2)}
+.toggle-track::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:var(--muted);left:2px;top:2px;transition:all 0.2s}
+.toggle-switch input:checked + .toggle-track{background:rgba(99,102,241,0.25);border-color:var(--blue)}
+.toggle-switch input:checked + .toggle-track::after{transform:translateX(20px);background:var(--blue)}
+/* Source tabs */
+.stabs{display:flex;gap:4px;margin-bottom:12px;background:var(--surface2);border-radius:9px;padding:3px;border:1px solid var(--border)}
+.stab{flex:1;padding:7px;text-align:center;border-radius:7px;cursor:pointer;font-size:0.72rem;font-family:var(--mono);color:var(--muted);transition:all 0.2s}
+.stab.active{background:var(--surface3);color:var(--text)}
+.stab-panel{display:none}
+.stab-panel.active{display:block}
+.kb-input{width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:0.78rem;outline:none;transition:border-color 0.2s;margin-bottom:8px}
+.kb-input:focus{border-color:rgba(245,197,24,0.4)}
+.kb-input::placeholder{color:var(--muted)}
+.kb-textarea{width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;font-family:var(--ui);font-size:0.78rem;outline:none;resize:vertical;min-height:80px;transition:border-color 0.2s;margin-bottom:8px;line-height:1.5}
+.kb-textarea:focus{border-color:rgba(245,197,24,0.4)}
+.kb-textarea::placeholder{color:var(--muted)}
+.kb-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px;font-family:var(--brand);font-size:0.7rem;font-weight:700;cursor:pointer;transition:opacity 0.2s}
+.kb-btn:hover{opacity:0.9}
+.kb-btn:disabled{opacity:0.4;cursor:not-allowed}
+/* PDF drop */
+.pdf-drop{border:2px dashed var(--border2);border-radius:9px;padding:22px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:8px}
+.pdf-drop:hover,.pdf-drop.hov{border-color:var(--accent);background:rgba(245,197,24,0.03)}
+.pdf-drop p{font-size:0.75rem;color:var(--muted);font-family:var(--mono)}
+.pdf-drop strong{display:block;color:var(--text);font-size:0.82rem;margin-bottom:4px}
+#pdf-name{display:none;font-size:0.72rem;font-family:var(--mono);color:var(--muted);margin-bottom:8px;padding:6px 9px;background:var(--surface3);border-radius:6px;border:1px solid var(--border)}
+/* Document cards */
+.doc-list{display:flex;flex-direction:column;gap:6px}
+.doc-card{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px}
+.doc-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.doc-info{flex:1;min-width:0}
+.doc-name{font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.doc-meta{font-size:0.63rem;color:var(--muted);font-family:var(--mono)}
+.doc-meta a{color:var(--blue);text-decoration:none}
+.doc-del{color:var(--muted);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px;transition:all 0.15s;flex-shrink:0;line-height:1}
+.doc-del:hover{color:var(--red);background:rgba(239,68,68,0.1)}
+.doc-empty{text-align:center;color:var(--muted);font-size:0.75rem;font-family:var(--mono);padding:20px 0;line-height:1.7}
+/* Panel overlay */
+.panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:499}
+.panel-overlay.open{display:block}
+
+@media(max-width:680px){
+  .sidebar{width:0;overflow:hidden}
+  .main-header{padding:10px 16px}
+  #messages{padding:14px}
+  .input-area{padding:10px 14px 14px}
+  .kb-panel{width:100%;right:-100%}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="brand">
+      <div class="brand-icon">YK</div>
+      <div class="brand-text">YellowKode Agent<span>Free · Local · Autonomous</span></div>
+    </div>
+    <button class="new-session-btn" onclick="newSession()">＋ New Session</button>
+  </div>
+  <div class="sidebar-section-title">Sessions</div>
+  <div class="sessions-list" id="sessions-list"></div>
+  <div class="sidebar-footer">
+    <div class="status-row" style="margin-bottom:6px">
+      <div class="dot" id="ollama-dot"></div>
+      <span id="ollama-status">Checking Ollama…</span>
+    </div>
+    <div class="status-row">
+      <div class="dot off" id="pw-dot"></div>
+      <span id="pw-status">Playwright MCP</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ═════════════════════════════════════════════════ -->
+<div class="main">
+  <div class="main-header">
+    <div class="session-info">
+      <div class="session-name" id="header-session-name">No session</div>
+      <div class="session-id" id="header-session-id">Select or create a session</div>
+    </div>
+    <div class="header-actions">
+      <div class="model-badge"><span>⬡</span><span id="model-label">gemma4:e4b</span></div>
+      <button class="hdr-btn" id="rag-btn" onclick="openKnowledgePanel()" title="Knowledge Base · RAG">📚</button>
+      <button class="hdr-btn" onclick="showTab('sessions')" title="Session history">📋</button>
+      <button class="hdr-btn" onclick="exportSession()" title="Export session">⬇</button>
+      <button class="hdr-btn" onclick="clearChat()" title="Clear chat">🗑</button>
+    </div>
+  </div>
+
+  <div class="view-tabs">
+    <div class="tab active" onclick="showTab('chat')" id="tab-chat">💬 Chat</div>
+    <div class="tab" onclick="showTab('sessions')" id="tab-sessions">📋 History</div>
+    <div class="tab" onclick="showTab('tasks')" id="tab-tasks">⚡ Tasks</div>
+  </div>
+
+  <div id="model-banner">
+    <span class="banner-dot"></span>
+    <span>Baixando modelo na primeira execução (~2.5 GB) — o agente funciona assim que terminar. / Downloading model on first run (~2.5 GB) — agent will work when done.</span>
+  </div>
+
+  <!-- ── CHAT ── -->
+  <div class="view-panel active" id="view-chat">
+    <div id="messages">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-logo">YK</div>
+        <h2>YellowKode Agent</h2>
+        <p>Agente autônomo 100% local — navega na web, extrai dados e executa tarefas sem custos de API.</p>
+        <div class="chips">
+          <div class="chip" onclick="useChip(this)">🌐 Top 5 histórias do HackerNews</div>
+          <div class="chip" onclick="useChip(this)">₿ Preço atual do Bitcoin</div>
+          <div class="chip" onclick="useChip(this)">🔍 Notícias de IA hoje</div>
+          <div class="chip" onclick="useChip(this)">📊 Extraia dados de uma página</div>
+          <div class="chip" onclick="useChip(this)">🌤 Qual a previsão do tempo em São Paulo?</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div id="preview-bar"></div>
+      <div class="input-row">
+        <div class="input-actions">
+          <button class="icon-btn" onclick="document.getElementById('file-input').click()" title="Attach image">🖼</button>
+          <button class="icon-btn" id="rec-btn" onclick="toggleRecord()" title="Record audio">🎙</button>
+        </div>
+        <textarea id="text-input" placeholder="Give the agent a task… (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+      <div class="input-hint">
+        <span>🌐 Browse · 📸 Vision · 🖥 Execute · 🖼 Ctrl+V · Drag & Drop · 100% local</span>
+        <span id="rag-hint" onclick="openKnowledgePanel()">📚 RAG ON</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SESSIONS ── -->
+  <div class="view-panel" id="view-sessions">
+    <div class="tasks-header" style="flex-shrink:0">
+      <h2>Session History</h2>
+      <button class="btn-primary" onclick="newSession();showTab('chat')">＋ New Session</button>
+    </div>
+    <div class="sessions-grid" id="sessions-grid"></div>
+  </div>
+
+  <!-- ── TASKS ── -->
+  <div class="view-panel" id="view-tasks">
+    <div class="tasks-header" style="flex-shrink:0">
+      <h2>Saved Tasks</h2>
+      <button class="btn-primary" onclick="showAddTask()">＋ Add Task</button>
+    </div>
+    <div id="tasks-list"></div>
+  </div>
+</div>
+
+<!-- Knowledge Base Panel overlay -->
+<div class="panel-overlay" id="panel-overlay" onclick="closeKnowledgePanel()"></div>
+
+<!-- Knowledge Base Panel -->
+<div class="kb-panel" id="kb-panel">
+  <div class="kb-header">
+    <div class="kb-title">📚 Knowledge Base · RAG</div>
+    <button class="kb-close" onclick="closeKnowledgePanel()">×</button>
+  </div>
+  <div class="kb-body">
+
+    <!-- RAG toggle -->
+    <div class="kb-section">
+      <div class="kb-section-label">Settings</div>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Enable RAG</div>
+          <div class="toggle-desc">Inject knowledge base context into tasks</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="rag-toggle" onchange="setRagEnabled(this.checked)"/>
+          <div class="toggle-track"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Add source -->
+    <div class="kb-section">
+      <div class="kb-section-label">Add Source</div>
+      <div class="stabs">
+        <div class="stab active" onclick="switchKbTab('url',this)">🌐 URL</div>
+        <div class="stab" onclick="switchKbTab('text',this)">📝 Text</div>
+        <div class="stab" onclick="switchKbTab('pdf',this)">📄 PDF</div>
+      </div>
+      <div class="stab-panel active" id="ktab-url">
+        <input class="kb-input" id="ing-url" type="url" placeholder="https://example.com/page"/>
+        <input class="kb-input" id="ing-url-name" type="text" placeholder="Name (optional)"/>
+        <button class="kb-btn" id="btn-url" onclick="ingestUrl()">Add URL</button>
+      </div>
+      <div class="stab-panel" id="ktab-text">
+        <input class="kb-input" id="ing-text-name" type="text" placeholder="Document name *"/>
+        <textarea class="kb-textarea" id="ing-text-body" placeholder="Paste text content here…" rows="5"></textarea>
+        <button class="kb-btn" id="btn-text" onclick="ingestText()">Add Text</button>
+      </div>
+      <div class="stab-panel" id="ktab-pdf">
+        <div class="pdf-drop" id="pdf-drop" onclick="document.getElementById('pdf-file-input').click()">
+          <strong>Click to select PDF</strong>
+          <p>or drag & drop here · max 50 MB</p>
+        </div>
+        <div id="pdf-name"></div>
+        <button class="kb-btn" id="btn-pdf" onclick="ingestPdf()">Upload PDF</button>
+      </div>
+    </div>
+
+    <!-- Document list -->
+    <div class="kb-section">
+      <div class="kb-section-label">
+        <span>Knowledge Base</span>
+        <span id="doc-count" style="font-family:var(--mono);font-size:0.65rem"></span>
+      </div>
+      <div class="doc-list" id="doc-list">
+        <div class="doc-empty">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="img-modal" id="img-modal" onclick="closeModal()">
+  <img id="modal-img" src="" alt="Screenshot"/>
+</div>
+<input type="file" id="file-input" accept="image/*" multiple/>
+<input type="file" id="pdf-file-input" accept=".pdf"/>
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+const OLLAMA     = '/api/ollama';
+const AGENT_CHAT = '/api/agent/chat';
+const RAG        = '/api/rag';
+
+let sessions     = JSON.parse(localStorage.getItem('yk_sessions') || '[]');
+let currentSession = null;
+let history      = [];
+let attachedImgs = [];
+let audioBlob    = null;
+let isGenerating = false;
+let mediaRec     = null;
+let isRecording  = false;
+let tasks        = JSON.parse(localStorage.getItem('yk_tasks') || JSON.stringify(defaultTasks()));
+let ragEnabled   = false;
+let selectedPdf  = null;
+
+function defaultTasks() {
+  return [
+    { id: uid(), name: 'HackerNews Top 5', icon: '📰', prompt: 'Navigate to https://news.ycombinator.com using the browser, take a screenshot, extract the top 5 stories with title, score, and link.' },
+    { id: uid(), name: 'Bitcoin Price', icon: '₿', prompt: 'Navigate to https://www.coingecko.com/en/coins/bitcoin, take a screenshot, extract price, 24h change, and give a BULLISH/BEARISH/NEUTRAL sentiment.' },
+    { id: uid(), name: 'Web Screenshot', icon: '📸', prompt: 'Navigate to the URL I provide and take a full screenshot. Describe what you see.' },
+    { id: uid(), name: 'AI News', icon: '🤖', prompt: 'Navigate to https://techcrunch.com/category/artificial-intelligence/ and list the 5 most recent AI news headlines.' },
+  ];
+}
+
+function uid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// HEALTH CHECKS
+// ─────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${OLLAMA}/version`, { signal: AbortSignal.timeout(5000) });
+    const data = await r.json();
+    document.getElementById('ollama-dot').classList.remove('off');
+    document.getElementById('ollama-status').textContent = `Ollama v${data.version || '?'}`;
+    try {
+      const mr = await fetch(`${OLLAMA}/tags`);
+      const md = await mr.json();
+      if (md.models?.length) document.getElementById('model-label').textContent = md.models[0].name;
+    } catch {}
+  } catch {
+    document.getElementById('ollama-dot').classList.add('off');
+    document.getElementById('ollama-status').textContent = 'Ollama offline';
+  }
+  try {
+    const r = await fetch('/api/agent/health', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      document.getElementById('pw-dot').classList.remove('off');
+      document.getElementById('pw-status').textContent = 'Agent ready';
+    } else throw new Error();
+  } catch {
+    document.getElementById('pw-dot').classList.add('off');
+    document.getElementById('pw-status').textContent = 'Agent offline';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 30000);
+
+// ─────────────────────────────────────────────────────────────
+// MODEL BANNER
+// ─────────────────────────────────────────────────────────────
+async function isModelReady() {
+  try {
+    const r = await fetch(`${OLLAMA}/tags`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return false;
+    const d = await r.json();
+    return (d.models || []).length > 0;
+  } catch { return false; }
+}
+let _bannerIv = null;
+async function initModelBanner() {
+  const banner = document.getElementById('model-banner');
+  if (await isModelReady()) { banner.classList.remove('show'); return; }
+  banner.classList.add('show');
+  _bannerIv = setInterval(async () => {
+    if (await isModelReady()) { banner.classList.remove('show'); clearInterval(_bannerIv); }
+  }, 15000);
+}
+initModelBanner();
+
+// ─────────────────────────────────────────────────────────────
+// RAG
+// ─────────────────────────────────────────────────────────────
+async function loadRagSettings() {
+  try {
+    const r = await fetch(`${RAG}/settings`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return;
+    const d = await r.json();
+    ragEnabled = !!d.rag_enabled;
+    document.getElementById('rag-toggle').checked = ragEnabled;
+    updateRagUI();
+  } catch {}
+}
+
+async function setRagEnabled(val) {
+  try {
+    await fetch(`${RAG}/settings`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rag_enabled: val }), signal: AbortSignal.timeout(5000)
+    });
+    ragEnabled = val;
+    updateRagUI();
+    showToast(val ? '📚 RAG enabled — tasks will use your knowledge base' : 'RAG disabled');
+  } catch { showToast('Could not save RAG setting'); }
+}
+
+function updateRagUI() {
+  document.getElementById('rag-hint').classList.toggle('on', ragEnabled);
+  document.getElementById('rag-btn').classList.toggle('rag-on', ragEnabled);
+}
+
+async function queryRag(text) {
+  try {
+    const r = await fetch(`${RAG}/query`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, limit: 5 }), signal: AbortSignal.timeout(30000)
+    });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+}
+
+async function loadDocuments() {
+  const list = document.getElementById('doc-list');
+  const cnt = document.getElementById('doc-count');
+  try {
+    const r = await fetch(`${RAG}/documents`, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error();
+    const docs = await r.json();
+    cnt.textContent = `${docs.length} source${docs.length !== 1 ? 's' : ''}`;
+    if (!docs.length) {
+      list.innerHTML = '<div class="doc-empty">No documents yet.<br>Add a URL, text, or PDF above.</div>';
+      return;
+    }
+    const icons = { url: '🌐', pdf: '📄', text: '📝' };
+    list.innerHTML = docs.map(d => `
+      <div class="doc-card">
+        <div class="doc-icon">${icons[d.type] || '📄'}</div>
+        <div class="doc-info">
+          <div class="doc-name" title="${escHtml(d.name)}">${escHtml(d.name)}</div>
+          <div class="doc-meta">${d.chunks} chunks · ${new Date(d.ingested_at).toLocaleDateString()}${d.url ? ' · <a href="' + escHtml(d.url) + '" target="_blank">' + escHtml(new URL(d.url).hostname) + '</a>' : ''}</div>
+        </div>
+        <div class="doc-del" onclick="deleteDoc('${escHtml(d.id)}')" title="Remove">🗑</div>
+      </div>
+    `).join('');
+  } catch {
+    list.innerHTML = '<div class="doc-empty">RAG API not reachable.<br>Run: docker compose logs yk_rag_api</div>';
+  }
+}
+
+async function deleteDoc(id) {
+  if (!confirm('Remove this document from the knowledge base?')) return;
+  try {
+    await fetch(`${RAG}/documents/${id}`, { method: 'DELETE', signal: AbortSignal.timeout(10000) });
+    showToast('Document removed'); await loadDocuments();
+  } catch { showToast('Could not remove document'); }
+}
+
+async function ingestUrl() {
+  const url = document.getElementById('ing-url').value.trim();
+  const name = document.getElementById('ing-url-name').value.trim();
+  if (!url) { showToast('Enter a URL'); return; }
+  const btn = document.getElementById('btn-url');
+  btn.disabled = true; btn.textContent = 'Ingesting…';
+  try {
+    const r = await fetch(`${RAG}/ingest/url`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name: name || undefined }), signal: AbortSignal.timeout(60000)
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed');
+    showToast(`✓ ${d.name} — ${d.chunks} chunks`);
+    document.getElementById('ing-url').value = '';
+    document.getElementById('ing-url-name').value = '';
+    await loadDocuments();
+  } catch (e) { showToast(`Error: ${e.message}`); }
+  finally { btn.disabled = false; btn.textContent = 'Add URL'; }
+}
+
+async function ingestText() {
+  const name = document.getElementById('ing-text-name').value.trim();
+  const text = document.getElementById('ing-text-body').value.trim();
+  if (!name || !text) { showToast('Name and text are required'); return; }
+  const btn = document.getElementById('btn-text');
+  btn.disabled = true; btn.textContent = 'Ingesting…';
+  try {
+    const r = await fetch(`${RAG}/ingest/text`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, text }), signal: AbortSignal.timeout(60000)
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed');
+    showToast(`✓ ${d.name} — ${d.chunks} chunks`);
+    document.getElementById('ing-text-name').value = '';
+    document.getElementById('ing-text-body').value = '';
+    await loadDocuments();
+  } catch (e) { showToast(`Error: ${e.message}`); }
+  finally { btn.disabled = false; btn.textContent = 'Add Text'; }
+}
+
+document.getElementById('pdf-file-input').addEventListener('change', function() {
+  selectedPdf = this.files[0] || null;
+  const el = document.getElementById('pdf-name');
+  if (selectedPdf) { el.style.display = 'block'; el.textContent = `📄 ${selectedPdf.name} (${(selectedPdf.size / 1024 / 1024).toFixed(1)} MB)`; }
+  else { el.style.display = 'none'; }
+  this.value = '';
+});
+
+const pdfDrop = document.getElementById('pdf-drop');
+pdfDrop.addEventListener('dragover', e => { e.preventDefault(); pdfDrop.classList.add('hov'); });
+pdfDrop.addEventListener('dragleave', () => pdfDrop.classList.remove('hov'));
+pdfDrop.addEventListener('drop', e => {
+  e.preventDefault(); pdfDrop.classList.remove('hov');
+  const f = e.dataTransfer.files[0];
+  if (f?.name.toLowerCase().endsWith('.pdf')) {
+    selectedPdf = f;
+    const el = document.getElementById('pdf-name');
+    el.style.display = 'block'; el.textContent = `📄 ${f.name} (${(f.size / 1024 / 1024).toFixed(1)} MB)`;
+  } else showToast('Please drop a PDF file');
+});
+
+async function ingestPdf() {
+  if (!selectedPdf) { showToast('Select a PDF first'); return; }
+  const btn = document.getElementById('btn-pdf');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const fd = new FormData();
+    fd.append('file', selectedPdf, selectedPdf.name);
+    const r = await fetch(`${RAG}/ingest/pdf`, { method: 'POST', body: fd, signal: AbortSignal.timeout(120000) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed');
+    showToast(`✓ ${d.name} — ${d.chunks} chunks`);
+    selectedPdf = null;
+    document.getElementById('pdf-name').style.display = 'none';
+    await loadDocuments();
+  } catch (e) { showToast(`Error: ${e.message}`); }
+  finally { btn.disabled = false; btn.textContent = 'Upload PDF'; }
+}
+
+function switchKbTab(name, el) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(`ktab-${name}`).classList.add('active');
+}
+
+function openKnowledgePanel() {
+  document.getElementById('kb-panel').classList.add('open');
+  document.getElementById('panel-overlay').classList.add('open');
+  loadDocuments();
+}
+function closeKnowledgePanel() {
+  document.getElementById('kb-panel').classList.remove('open');
+  document.getElementById('panel-overlay').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────
+// SESSIONS
+// ─────────────────────────────────────────────────────────────
+function saveSessions() { localStorage.setItem('yk_sessions', JSON.stringify(sessions)); }
+
+function newSession(title) {
+  const session = {
+    id: uid(), title: title || 'New Session', agent: 'main', status: 'active',
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    messages: [], screenshots: [], summary: '',
+  };
+  sessions.unshift(session);
+  saveSessions(); loadSession(session.id); renderSessionsList(); showTab('chat');
+  return session;
+}
+
+function loadSession(id) {
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  currentSession = s;
+  history = s.messages.map(m => ({ role: m.role, content: m.content }));
+  document.getElementById('header-session-name').textContent = s.title;
+  document.getElementById('header-session-id').textContent = `#${s.id.slice(0,8)} · ${new Date(s.created_at).toLocaleDateString()}`;
+  renderMessages(); renderSessionsList();
+}
+
+function updateSession(patch) {
+  if (!currentSession) return;
+  Object.assign(currentSession, patch, { updated_at: new Date().toISOString() });
+  saveSessions(); renderSessionsList();
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this session?')) return;
+  const idx = sessions.findIndex(s => s.id === id);
+  if (idx === -1) return;
+  sessions.splice(idx, 1); saveSessions();
+  if (currentSession?.id === id) {
+    currentSession = null; history = []; attachedImgs = [];
+    document.getElementById('header-session-name').textContent = 'No session';
+    document.getElementById('header-session-id').textContent = 'Select or create a session';
+    renderMessages();
+  }
+  renderSessionsList(); showToast('Session deleted');
+}
+
+function autoTitle(text) {
+  if (!currentSession || currentSession.title !== 'New Session') return;
+  const title = text.length > 50 ? text.slice(0,47) + '…' : text;
+  updateSession({ title });
+  document.getElementById('header-session-name').textContent = title;
+  renderSessionsList();
+}
+
+function renderSessionsList() {
+  const el = document.getElementById('sessions-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.75rem;font-family:var(--mono)">No sessions yet</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="session-item ${currentSession?.id === s.id ? 'active' : ''}" onclick="loadSession('${s.id}');showTab('chat')">
+      <div class="session-title-row">
+        <div class="session-title">${escHtml(s.title)}</div>
+        <span class="session-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">×</span>
+      </div>
+      <div class="session-meta">
+        <div class="session-status-dot ${s.status}"></div>
+        <span>${new Date(s.updated_at).toLocaleDateString()}</span>
+        <span>·</span>
+        <span>${s.messages?.length || 0} msgs</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSessionsGrid() {
+  const el = document.getElementById('sessions-grid');
+  if (!sessions.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:20px">No sessions yet. Start a chat!</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="session-card" onclick="loadSession('${s.id}');showTab('chat')">
+      <div class="sc-header">
+        <div>
+          <div class="sc-title">${escHtml(s.title)}</div>
+          <div class="sc-agent">${s.agent}</div>
+        </div>
+        <div class="sc-status ${s.status}">${s.status}</div>
+      </div>
+      ${s.screenshots?.length ? `<div class="sc-screenshots">${s.screenshots.slice(0,3).map(f => `<img src="/screenshots/${f}" alt="screenshot" onclick="event.stopPropagation();openModal('/screenshots/${f}')"/>`).join('')}${s.screenshots.length > 3 ? `<div style="font-size:0.7rem;color:var(--muted);align-self:center;font-family:var(--mono)">+${s.screenshots.length-3}</div>` : ''}</div>` : ''}
+      <div class="sc-summary">${escHtml(s.summary || 'No summary yet')}</div>
+      <div class="sc-footer">
+        <div class="sc-stats"><div class="sc-stat">💬 ${s.messages?.length || 0}</div><div class="sc-stat">📸 ${s.screenshots?.length || 0}</div></div>
+        <span>${new Date(s.created_at).toLocaleString()}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// CHAT RENDERING
+// ─────────────────────────────────────────────────────────────
+function renderMessages() {
+  const el = document.getElementById('messages');
+  document.getElementById('empty-state')?.remove();
+  if (!currentSession?.messages?.length) {
+    el.innerHTML = `<div class="empty-state" id="empty-state">
+      <div class="empty-logo">YK</div>
+      <h2>YellowKode Agent</h2>
+      <p>Agente autônomo 100% local — navega na web, extrai dados e executa tarefas sem custos de API.</p>
+      <div class="chips">
+        <div class="chip" onclick="useChip(this)">🌐 Top 5 histórias do HackerNews</div>
+        <div class="chip" onclick="useChip(this)">₿ Preço atual do Bitcoin</div>
+        <div class="chip" onclick="useChip(this)">🔍 Notícias de IA hoje</div>
+        <div class="chip" onclick="useChip(this)">🌤 Previsão do tempo em São Paulo</div>
+      </div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = '';
+  currentSession.messages.forEach(m => appendBubble(m.role, m.displayHtml || escHtml(m.content), false));
+  scrollBottom();
+}
+
+function appendBubble(role, htmlContent, animate = true) {
+  document.getElementById('empty-state')?.remove();
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  if (role === 'assistant') {
+    el.innerHTML = `<div class="avatar ai">YK</div><div class="msg-body"><div class="bubble">${htmlContent}</div><span class="copy-btn" onclick="copyBubble(this)">⎘ Copy</span></div>`;
+  } else {
+    el.innerHTML = `<div class="avatar user">👤</div><div class="bubble">${htmlContent}</div>`;
+  }
+  document.getElementById('messages').appendChild(el);
+  scrollBottom(); return el;
+}
+
+function copyBubble(btn) {
+  const text = btn.closest('.msg').querySelector('.bubble').innerText;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed'));
+}
+function scrollBottom() { const el = document.getElementById('messages'); el.scrollTop = el.scrollHeight; }
+
+// ─────────────────────────────────────────────────────────────
+// SEND MESSAGE
+// ─────────────────────────────────────────────────────────────
+document.getElementById('text-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 180) + 'px';
+});
+document.getElementById('text-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+async function sendMessage() {
+  if (isGenerating) return;
+  const text = document.getElementById('text-input').value.trim();
+  if (!text && !attachedImgs.length) return;
+  if (!currentSession) newSession();
+  if (currentSession.messages.length === 0) autoTitle(text);
+
+  let displayHtml = '';
+  if (attachedImgs.length) {
+    attachedImgs.forEach(img => {
+      displayHtml += `<img src="data:${img.mime};base64,${img.b64}" style="max-width:280px;cursor:pointer" onclick="openModal(this.src)"/>`;
+    });
+  }
+  if (text) displayHtml += renderMd(escHtml(text));
+
+  const userMsg = { role: 'user', content: text, displayHtml, created_at: new Date().toISOString() };
+  currentSession.messages.push(userMsg);
+  history.push({ role: 'user', content: text, images: attachedImgs.map(i => i.b64) });
+  appendBubble('user', displayHtml);
+
+  document.getElementById('text-input').value = '';
+  document.getElementById('text-input').style.height = 'auto';
+  attachedImgs = []; audioBlob = null; renderPreviewBar();
+
+  const thinkEl = appendBubble('assistant', '<div class="thinking"><span></span><span></span><span></span></div>');
+  const bubbleEl = thinkEl.querySelector('.bubble');
+  isGenerating = true; document.getElementById('send-btn').disabled = true;
+
+  let fullText = '';
+  let ragSources = [];
+
+  // Build messages array — inject RAG context if enabled
+  let msgs = [...history];
+  if (ragEnabled && text) {
+    try {
+      ragSources = await queryRag(text);
+      if (ragSources.length) {
+        const ctx = ragSources.map((r, i) => `[${i+1}] Source: "${r.source_name}"\n${r.text}`).join('\n\n---\n\n');
+        // Augment only the last user message for this call (don't persist to history)
+        const lastMsg = { ...msgs[msgs.length - 1] };
+        lastMsg.content = `[Knowledge Base Context]\n${ctx}\n[End Context]\n\n${text}`;
+        msgs = [...msgs.slice(0, -1), lastMsg];
+      }
+    } catch {}
+  }
+
+  try {
+    const resp = await fetch(AGENT_CHAT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: msgs })
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    let firstChunk = true;
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value).split('\n').filter(Boolean)) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.message?.content) {
+            if (firstChunk) { bubbleEl.innerHTML = ''; firstChunk = false; }
+            fullText += obj.message.content;
+            bubbleEl.innerHTML = renderMd(fullText) + '<span class="stream-cursor">▋</span>';
+            scrollBottom();
+          }
+        } catch {}
+      }
+    }
+
+    let finalHtml = renderMd(fullText);
+    if (ragSources.length) {
+      const badge = `<div class="rag-badge">📚 ${ragSources.length} source${ragSources.length > 1 ? 's' : ''} from knowledge base</div>`;
+      finalHtml = badge + finalHtml;
+    }
+    bubbleEl.innerHTML = finalHtml;
+
+    const aiMsg = { role: 'assistant', content: fullText, displayHtml: finalHtml, created_at: new Date().toISOString() };
+    currentSession.messages.push(aiMsg);
+    history.push({ role: 'assistant', content: fullText });
+
+    if (!currentSession.summary && fullText.length > 50) {
+      updateSession({ summary: fullText.slice(0, 120) + (fullText.length > 120 ? '…' : '') });
+    }
+    updateSession({ status: 'active' });
+    saveSessions();
+
+  } catch (err) {
+    const is404 = err.message.includes('404');
+    bubbleEl.innerHTML = is404
+      ? `<span style="color:var(--accent)">⏳ Modelo ainda sendo baixado (~2.5 GB na primeira vez). Aguarde e tente novamente.<br><small style="color:var(--muted)">Downloading model on first run — please wait a few minutes.</small></span>`
+      : `<span style="color:var(--red)">⚠ ${escHtml(err.message)}<br><small style="color:var(--muted)">Check: docker compose logs yk_agent_api</small></span>`;
+  } finally {
+    isGenerating = false; document.getElementById('send-btn').disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// IMAGE UPLOAD
+// ─────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', async function() {
+  for (const file of this.files) {
+    if (!file.type.startsWith('image/')) continue;
+    const b64 = await toB64(file);
+    attachedImgs.push({ b64, mime: file.type, name: file.name });
+  }
+  renderPreviewBar(); this.value = '';
+});
+
+document.addEventListener('paste', async (e) => {
+  const items = e.clipboardData?.items; if (!items) return;
+  let found = false;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile(); if (!file) continue;
+      const b64 = await toB64(file);
+      attachedImgs.push({ b64, mime: file.type, name: 'pasted-image.png' }); found = true;
+    }
+  }
+  if (found) { renderPreviewBar(); showToast('Image pasted ✓'); }
+});
+
+const _inputArea = document.querySelector('.input-area');
+_inputArea.addEventListener('dragover', e => { e.preventDefault(); _inputArea.classList.add('drag-over'); });
+_inputArea.addEventListener('dragleave', e => { if (!_inputArea.contains(e.relatedTarget)) _inputArea.classList.remove('drag-over'); });
+_inputArea.addEventListener('drop', async e => {
+  e.preventDefault(); _inputArea.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  for (const f of files) { const b64 = await toB64(f); attachedImgs.push({ b64, mime: f.type, name: f.name }); }
+  if (files.length) { renderPreviewBar(); showToast(`${files.length} image${files.length > 1 ? 's' : ''} added`); }
+});
+
+function toB64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file);
+  });
+}
+
+function renderPreviewBar() {
+  const bar = document.getElementById('preview-bar');
+  if (!attachedImgs.length && !audioBlob) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = attachedImgs.map((img, i) => `
+    <div class="preview-item">
+      <img src="data:${img.mime};base64,${img.b64}"/>
+      <span>${img.name.slice(0,20)}</span>
+      <span class="rm" onclick="attachedImgs.splice(${i},1);renderPreviewBar()">×</span>
+    </div>
+  `).join('') + (audioBlob ? `<div class="preview-item">🎙 Audio <span class="rm" onclick="audioBlob=null;renderPreviewBar()">×</span></div>` : '');
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIO RECORDING
+// ─────────────────────────────────────────────────────────────
+async function toggleRecord() {
+  if (isRecording) {
+    mediaRec?.stop(); isRecording = false;
+    document.getElementById('rec-btn').classList.remove('rec');
+  } else {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      mediaRec = new MediaRecorder(stream);
+      mediaRec.ondataavailable = e => chunks.push(e.data);
+      mediaRec.onstop = () => { stream.getTracks().forEach(t => t.stop()); audioBlob = new Blob(chunks, { type: 'audio/webm' }); renderPreviewBar(); showToast('Audio recorded'); };
+      mediaRec.start(); isRecording = true;
+      document.getElementById('rec-btn').classList.add('rec');
+      showToast('Recording… click 🎙 again to stop');
+    } catch { showToast('Microphone access denied'); }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TASKS
+// ─────────────────────────────────────────────────────────────
+function saveTasks() { localStorage.setItem('yk_tasks', JSON.stringify(tasks)); }
+
+function renderTasksList() {
+  const el = document.getElementById('tasks-list');
+  el.innerHTML = tasks.map(t => `
+    <div class="task-card" onclick="runTask('${t.id}')">
+      <div class="task-icon">${t.icon || '⚡'}</div>
+      <div class="task-info">
+        <div class="task-name">${escHtml(t.name)}</div>
+        <div class="task-prompt">${escHtml(t.prompt)}</div>
+      </div>
+      <button class="task-run-btn" onclick="event.stopPropagation();runTask('${t.id}')">▶ Run</button>
+    </div>
+  `).join('');
+}
+
+function runTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  newSession(task.name); showTab('chat');
+  document.getElementById('text-input').value = task.prompt;
+  document.getElementById('text-input').dispatchEvent(new Event('input'));
+  setTimeout(() => sendMessage(), 100);
+  showToast(`Running: ${task.name}`);
+}
+
+function showAddTask() {
+  const name = prompt('Task name:'); if (!name) return;
+  const p = prompt('Task prompt (what should the agent do?):'); if (!p) return;
+  const icon = prompt('Icon emoji (optional, default ⚡):') || '⚡';
+  tasks.push({ id: uid(), name, prompt: p, icon });
+  saveTasks(); renderTasksList(); showToast(`Task "${name}" saved`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.getElementById(`view-${tab}`).classList.add('active');
+  if (tab === 'sessions') renderSessionsGrid();
+  if (tab === 'tasks') renderTasksList();
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXPORT / CLEAR
+// ─────────────────────────────────────────────────────────────
+function exportSession() {
+  if (!currentSession) { showToast('No session selected'); return; }
+  const blob = new Blob([JSON.stringify({ id: currentSession.id, title: currentSession.title, created_at: currentSession.created_at, messages: currentSession.messages, screenshots: currentSession.screenshots, summary: currentSession.summary }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `yk-session-${currentSession.id.slice(0,8)}-${Date.now()}.json`; a.click();
+  URL.revokeObjectURL(url); showToast('Session exported');
+}
+
+function clearChat() {
+  if (!currentSession) return;
+  if (!confirm('Clear this session?')) return;
+  currentSession.messages = []; currentSession.screenshots = []; currentSession.summary = '';
+  history = []; saveSessions(); renderMessages(); showToast('Session cleared');
+}
+
+// ─────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────
+const CHIP_PROMPTS = {
+  'Top 5 histórias do HackerNews': 'Acesse https://news.ycombinator.com e extraia as 5 principais histórias com título, pontuação e link.',
+  'Preço atual do Bitcoin': 'Acesse https://www.coingecko.com/pt/moedas/bitcoin e informe o preço atual do Bitcoin em USD e BRL, variação 24h.',
+  'Notícias de IA hoje': 'Acesse https://techcrunch.com/category/artificial-intelligence/ e liste as 5 notícias mais recentes.',
+  'Extraia dados de uma página': 'Acesse https://quotes.toscrape.com e extraia as 5 primeiras citações com autor e tags.',
+  'Qual a previsão do tempo em São Paulo?': 'Acesse https://weather.com/pt-BR/tempo/hoje/l/São+Paulo+SP+Brasil e informe a previsão do tempo para hoje.',
+  'Previsão do tempo em São Paulo': 'Acesse https://weather.com/pt-BR/tempo/hoje/l/São+Paulo+SP+Brasil e informe a previsão do tempo para hoje.',
+};
+
+function useChip(el) {
+  const label = el.textContent.replace(/^[\p{Emoji}\s]+/u, '').trim();
+  const p = CHIP_PROMPTS[label] || el.textContent.trim();
+  const inp = document.getElementById('text-input');
+  inp.value = p; inp.dispatchEvent(new Event('input'));
+  setTimeout(() => sendMessage(), 100);
+}
+
+function openModal(src) { document.getElementById('modal-img').src = src; document.getElementById('img-modal').classList.add('open'); }
+function closeModal() { document.getElementById('img-modal').classList.remove('open'); }
+
+function showToast(msg, ms = 2500) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderMd(t) {
+  return t
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_,l,c) => `<pre><code>${escHtml(c.trim())}</code></pre>`)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^[-*] (.+)$/gm,'<li>$1</li>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+renderSessionsList();
+renderTasksList();
+if (sessions.length) loadSession(sessions[0].id);
+loadRagSettings();
+</script>
+</body>
+</html>

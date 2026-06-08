@@ -1,0 +1,78 @@
+name: Validate Stack
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .env for validation
+        run: cp .env.example .env
+
+      - name: Validate docker-compose syntax
+        run: docker compose config --quiet
+
+      - name: Validate prod overlay syntax
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet || true
+
+      - name: Validate config JSON
+        run: |
+          python3 << 'EOF'
+          import json, sys, re
+          with open('config/openclaw.json') as f:
+              content = f.read()
+          # Strip // comments without touching // inside strings
+          out, in_s, i = [], False, 0
+          while i < len(content):
+              c = content[i]
+              if c == '\\' and in_s:
+                  out.append(c); i += 1
+                  if i < len(content): out.append(content[i])
+                  i += 1; continue
+              if c == '"': in_s = not in_s
+              if not in_s and c == '/' and i+1 < len(content) and content[i+1] == '/':
+                  while i < len(content) and content[i] != '\n': i += 1
+                  continue
+              out.append(c); i += 1
+          s = re.sub(r',(\s*[}\]])', r'\1', ''.join(out))
+          try:
+              json.loads(s)
+              print('✅ config/openclaw.json is valid JSON')
+          except Exception as e:
+              print(f'❌ Invalid JSON: {e}', file=sys.stderr); sys.exit(1)
+          EOF
+
+      - name: Check all required files exist
+        run: |
+          files=(
+            "docker-compose.yml"
+            "docker-compose.prod.yml"
+            ".env.example"
+            "README.md"
+            ".gitignore"
+            "config/openclaw.json"
+            "openclaw/Dockerfile"
+            "playwright-mcp/Dockerfile"
+            "playwright-mcp/start.sh"
+            "playwright-mcp/healthcheck.js"
+            "scripts/setup.sh"
+            "scripts/tasks.sh"
+            "scripts/n8n-agent.sh"
+          )
+          for f in "${files[@]}"; do
+            test -f "$f" && echo "✅ $f" || { echo "❌ Missing: $f"; exit 1; }
+          done
+
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/setup.sh && echo "✅ setup.sh valid"
+          bash -n scripts/tasks.sh && echo "✅ tasks.sh valid"
+          bash -n scripts/n8n-agent.sh && echo "✅ n8n-agent.sh valid"
+          bash -n playwright-mcp/start.sh && echo "✅ start.sh valid"

@@ -1,0 +1,217 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════
+#  YellowKode Agent — Free Autonomous AI Agent
+#  100% local · zero API costs · no tokens required
+#
+#  Services:
+#   • postgres        — session persistence
+#   • ollama          — LLM runtime (Gemma local inference)
+#   • model-init      — auto-downloads model + embedding model on first run
+#   • qdrant          — vector DB for RAG (optional, toggle in Knowledge Base)
+#   • rag-api         — document ingestion + semantic search
+#   • playwright-mcp  — headless browser via MCP protocol
+#   • agent-api       — agent loop (Ollama + browser tools)
+#   • session-ui      — web dashboard (chat + session history + RAG settings)
+#
+#  Open Source — YellowKode (https://yellowkode.com) + Wunka Tech (https://wunka.tech)
+# ══════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL — session persistence ──────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: yk_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yk_agent
+      POSTGRES_USER: yk_agent
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yk_agent_local}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yk_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - yk_net
+
+  # ── Ollama — Local LLM inference ──────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: yk_ollama
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11435}:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_FLASH_ATTENTION=1
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - yk_net
+
+  # ── Model Init — pull chat + embedding models on first run ─
+  model-init:
+    image: ollama/ollama:latest
+    container_name: yk_model_init
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - GEMMA_MODEL=${GEMMA_MODEL:-gemma4:e4b}
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["sh", "-c", "echo '⬇ Pulling '$$GEMMA_MODEL && ollama pull $$GEMMA_MODEL && echo '⬇ Pulling nomic-embed-text (RAG embedding model)' && ollama pull nomic-embed-text && echo '✅ All models ready!'"]
+    networks:
+      - yk_net
+
+  # ── Qdrant — Vector DB for RAG ────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: yk_qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/6333' && exit 0 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 5s
+    networks:
+      - yk_net
+
+  # ── RAG API — document ingestion + semantic search ─────────
+  rag-api:
+    build:
+      context: ./rag-api
+      dockerfile: Dockerfile
+    container_name: yk_rag_api
+    restart: unless-stopped
+    environment:
+      - OLLAMA_API_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - PORT=3002
+    volumes:
+      - rag_data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3002/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - yk_net
+
+  # ── Playwright MCP — Headless browser ─────────────────────
+  playwright-mcp:
+    build:
+      context: ./playwright-mcp
+      dockerfile: Dockerfile
+    container_name: yk_playwright
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8931:8931"
+    environment:
+      - PLAYWRIGHT_HEADLESS=true
+      - PLAYWRIGHT_BROWSER=${PLAYWRIGHT_BROWSER:-chromium}
+      - MCP_PORT=8931
+    shm_size: "1gb"
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - playwright_output:/output
+    healthcheck:
+      test: ["CMD", "curl", "-s", "--max-time", "3", "http://localhost:8931/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - yk_net
+
+  # ── Agent API — LLM + browser tool loop ───────────────────
+  agent-api:
+    build:
+      context: ./agent-api
+      dockerfile: Dockerfile
+    container_name: yk_agent_api
+    restart: unless-stopped
+    environment:
+      - OLLAMA_API_URL=http://ollama:11434
+      - PLAYWRIGHT_MCP_URL=http://playwright-mcp:8931
+      - GEMMA_MODEL=${GEMMA_MODEL:-gemma4:e4b}
+      - AGENT_PORT=8080
+    depends_on:
+      ollama:
+        condition: service_healthy
+      playwright-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - yk_net
+
+  # ── Session UI — Web dashboard ─────────────────────────────
+  session-ui:
+    build:
+      context: ./session-ui
+      dockerfile: Dockerfile
+    container_name: yk_session_ui
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-3001}:80"
+    volumes:
+      - playwright_output:/var/www/screenshots:ro
+    depends_on:
+      agent-api:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rag-api:
+        condition: service_healthy
+    networks:
+      - yk_net
+
+volumes:
+  postgres_data:
+  ollama_models:
+  qdrant_data:
+  rag_data:
+  playwright_output:
+
+networks:
+  yk_net:
+    driver: bridge

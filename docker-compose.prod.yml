@@ -1,0 +1,39 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════
+#  docker-compose.prod.yml — Traefik overlay for Hostinger VPS
+#
+#  Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+#  Requires: Traefik running with network `traefik_public`
+# ══════════════════════════════════════════════════════════════
+
+services:
+  openclaw:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent.rule=Host(`agent.${DOMAIN}`)"
+      - "traefik.http.routers.agent.entrypoints=websecure"
+      - "traefik.http.routers.agent.tls.certresolver=letsencrypt"
+      - "traefik.http.services.agent.loadbalancer.server.port=18789"
+    networks:
+      - traefik_public
+
+  ollama:
+    # Ollama stays internal — only OpenClaw reaches it
+    ports: !reset []
+    networks:
+      - traefik_public
+
+  playwright-mcp:
+    # Playwright stays internal — only OpenClaw reaches it
+    ports: !reset []
+    networks:
+      - traefik_public
+
+networks:
+  traefik_public:
+    external: true
+  agent_net:
+    driver: bridge

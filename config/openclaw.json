@@ -1,0 +1,144 @@
+{
+  // ══════════════════════════════════════════════════════════
+  //  openclaw.json — Gemma 4 Agent Stack configuration
+  //
+  //  Model: Gemma 4 (local via Ollama) — zero API cost
+  //  Browser: Playwright MCP (via SSE transport)
+  //  Memory: local vector store
+  // ══════════════════════════════════════════════════════════
+
+  // ── LLM Provider: Ollama (local Gemma 4) ──────────────────
+  "models": {
+    "providers": {
+      "ollama": {
+        // ⚠ Do NOT add /v1 — breaks tool calling with Ollama
+        "baseUrl": "http://ollama:11434",
+        "api": "ollama",
+        "apiKey": "ollama-local"
+      }
+    }
+  },
+
+  // ── Default model for all agents ─────────────────────────
+  "agents": {
+    "defaults": {
+      "model": {
+        // Change to gemma4:e2b for less RAM usage
+        // Change to gemma4:12b for better quality (needs 8GB+)
+        "primary": "ollama/gemma4:e4b",
+        "fallbacks": [
+          "ollama/gemma4:e2b"
+        ]
+      },
+      // 64k context — required for agent loops with Ollama
+      "maxTokens": 64000,
+      "contextWindow": 65536
+    },
+
+    // ── Agents ───────────────────────────────────────────────
+    "agents": {
+
+      // ── Main autonomous agent (default) ──────────────────
+      "main": {
+        "name": "Gemma",
+        "model": {
+          "primary": "ollama/gemma4:e4b"
+        },
+        "systemPrompt": "You are Gemma, an autonomous AI agent running locally. You can browse the web, take screenshots, extract data, fill forms, and run shell commands. You have vision capabilities — when you take a screenshot, analyze it carefully. Always be precise, concise, and take the most direct path to accomplish tasks. When browsing, prefer extracting structured data over full page text.",
+        "tools": {
+          // Shell execution
+          "exec": { "enabled": true },
+          // Web search (no API key, uses DuckDuckGo by default)
+          "web_search": { "enabled": true },
+          // Direct URL fetching
+          "web_fetch": { "enabled": true },
+          // Full Playwright browser control
+          "browser": { "enabled": true },
+          // Read/write files in workspace
+          "read_file": { "enabled": true },
+          "write_file": { "enabled": true }
+        }
+      },
+
+      // ── Researcher: specialized in web scraping + analysis ──
+      "researcher": {
+        "name": "Researcher",
+        "model": {
+          "primary": "ollama/gemma4:e4b"
+        },
+        "systemPrompt": "You are a research agent. Your job is to find, extract, and summarize information from the web. Use browser automation to navigate pages, take screenshots for visual context, and extract structured data. Always return findings in a clean, structured format.",
+        "tools": {
+          "browser": { "enabled": true },
+          "web_search": { "enabled": true },
+          "web_fetch": { "enabled": true },
+          "write_file": { "enabled": true }
+        }
+      },
+
+      // ── Monitor: watches URLs and reports changes ──────────
+      "monitor": {
+        "name": "Monitor",
+        "model": {
+          "primary": "ollama/gemma4:e2b"
+        },
+        "systemPrompt": "You are a monitoring agent. Navigate to URLs, take screenshots, extract specific data points, compare with previous values, and report changes. Be efficient — only report when something meaningful changes.",
+        "tools": {
+          "browser": { "enabled": true },
+          "web_fetch": { "enabled": true },
+          "write_file": { "enabled": true },
+          "exec": { "enabled": true }
+        }
+      }
+    }
+  },
+
+  // ── MCP Servers ───────────────────────────────────────────
+  "mcpServers": {
+    // Playwright browser automation
+    "playwright": {
+      "transport": "sse",
+      "url": "http://playwright-mcp:8931/sse"
+    }
+    // Add more MCP servers here — they all work with Gemma 4:
+    // "filesystem": {
+    //   "command": "npx",
+    //   "args": ["@modelcontextprotocol/server-filesystem", "/workspace"]
+    // },
+    // "postgres": {
+    //   "command": "npx",
+    //   "args": ["@modelcontextprotocol/server-postgres", "postgresql://..."]
+    // }
+  },
+
+  // ── Memory (local vector store — no external DB needed) ───
+  "memory": {
+    "enabled": true,
+    "provider": "local",
+    "path": "/root/.openclaw/memory"
+  },
+
+  // ── Channels (optional messaging integrations) ────────────
+  // Telegram bot (set TELEGRAM_TOKEN in .env to activate)
+  // "channels": {
+  //   "telegram": {
+  //     "token": "${TELEGRAM_TOKEN}",
+  //     "allowedUsers": []   // leave empty for any user, or add IDs
+  //   }
+  // },
+
+  // ── Gateway settings ──────────────────────────────────────
+  "gateway": {
+    "port": 18789,
+    "host": "0.0.0.0"
+  },
+
+  // ── Workspace ─────────────────────────────────────────────
+  "workspace": {
+    "path": "/workspace"
+  },
+
+  // ── Logging ───────────────────────────────────────────────
+  "logging": {
+    "level": "info"
+  }
+}

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+dist/
+build/
+
+# Environment
+.env
+
+# Docker volumes
+ollama_models/
+openclaw_state/
+openclaw_workspace/
+playwright_output/
+
+# Agent state and memory (sensitive)
+config/openclaw.local.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
